@@ -1,11 +1,11 @@
 {
-  "run_utc": "2026-10-26T13:00:54.891595+00:00",
+  "run_utc": "2026-10-26T14:22:25.662506+00:00",
   "resources": {
     "variety_wise_daily": {
       "resource_id": "35985678-0d79-46b4-9ed6-6f13308a1d24",
       "head": {
         "http": null,
-        "error": "ConnectTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Max retries exceeded with url: /resource/35985678-0d79-46b4-9ed6-6f13308a1d24?api-key=***&format=json&limit=1&offset=0 (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.data.gov.in', port=443) at 0x76ec2364a290>, 'Connect"
+        "error": "ReadTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Read timed out. (read timeout=45)"
       },
       "sample_record": null,
       "date_field": null,
@@ -30,7 +30,7 @@
       "resource_id": "9ef84268-d588-465a-a308-a864a43d0070",
       "head": {
         "http": null,
-        "error": "ConnectTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Max retries exceeded with url: /resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=***&format=json&limit=1&offset=0 (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.data.gov.in', port=443) at 0x76ec2363fe10>, 'Connect"
+        "error": "ReadTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Read timed out. (read timeout=45)"
       },
       "sample_record": null,
       "date_field": null,
