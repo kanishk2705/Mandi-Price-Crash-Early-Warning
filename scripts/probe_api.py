@@ -20,8 +20,8 @@ KEY = os.environ.get("DATA_GOV_IN_API_KEY", "")
 OUT = Path("results/api_probe")
 
 RESOURCES = {
-    "variety_wise_daily": "35985678-0d79-46b4-9ed6-6f13308a1d24",
     "current_daily_mandi": "9ef84268-d588-465a-a308-a864a43d0070",
+    "variety_wise_daily": "35985678-0d79-46b4-9ed6-6f13308a1d24",
 }
 CROPS = ["Tomato", "Onion", "Potato"]
 
@@ -30,13 +30,13 @@ def redact(text: str) -> str:
     return text.replace(KEY, "***") if KEY else text
 
 
-def call(rid: str, params: dict, retries: int = 2) -> dict:
+def call(rid: str, params: dict, retries: int = 2, timeout: int = 120) -> dict:
     q = {"api-key": KEY, "format": "json", "limit": 1, "offset": 0, **params}
     last = {}
     for attempt in range(retries):
         t0 = time.time()
         try:
-            r = requests.get(BASE + rid, params=q, timeout=45)
+            r = requests.get(BASE + rid, params=q, timeout=(20, timeout))
             info = {"http": r.status_code, "secs": round(time.time() - t0, 2)}
             try:
                 body = r.json()
@@ -83,7 +83,13 @@ def main() -> int:
 
     for name, rid in RESOURCES.items():
         res: dict = {"resource_id": rid}
-        head = call(rid, {})
+        head = call(rid, {}, retries=3, timeout=180)
+        print(f"[{name}] head: http={head.get('http')} total={head.get('total')} secs={head.get('secs')} err={head.get('error', '')[:80]}", flush=True)
+        if not head.get("total"):
+            res["head"] = {k: v for k, v in head.items() if k != "records"}
+            res["crop_totals"], res["date_coverage_probe"] = {}, {}
+            report["resources"][name] = res
+            continue
         res["head"] = {k: v for k, v in head.items() if k != "records"}
         res["sample_record"] = (head.get("records") or [None])[0]
         fields = head.get("fields") or []
