@@ -1,54 +1,23 @@
 {
-  "run_utc": "2026-10-26T14:22:25.662506+00:00",
+  "run_utc": "2026-10-26T14:36:54.666508+00:00",
   "resources": {
+    "current_daily_mandi": {
+      "resource_id": "9ef84268-d588-465a-a308-a864a43d0070",
+      "head": {
+        "http": 502,
+        "secs": 61.47,
+        "error": ""
+      },
+      "crop_totals": {},
+      "date_coverage_probe": {}
+    },
     "variety_wise_daily": {
       "resource_id": "35985678-0d79-46b4-9ed6-6f13308a1d24",
       "head": {
         "http": null,
-        "error": "ReadTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Read timed out. (read timeout=45)"
+        "error": "ReadTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Read timed out. (read timeout=180)"
       },
-      "sample_record": null,
-      "date_field": null,
-      "commodity_field": "commodity",
-      "crop_totals": {
-        "Tomato": {
-          "http": null,
-          "total": null
-        },
-        "Onion": {
-          "http": null,
-          "total": null
-        },
-        "Potato": {
-          "http": null,
-          "total": null
-        }
-      },
-      "date_coverage_probe": {}
-    },
-    "current_daily_mandi": {
-      "resource_id": "9ef84268-d588-465a-a308-a864a43d0070",
-      "head": {
-        "http": null,
-        "error": "ReadTimeout: HTTPSConnectionPool(host='api.data.gov.in', port=443): Read timed out. (read timeout=45)"
-      },
-      "sample_record": null,
-      "date_field": null,
-      "commodity_field": "commodity",
-      "crop_totals": {
-        "Tomato": {
-          "http": null,
-          "total": null
-        },
-        "Onion": {
-          "http": null,
-          "total": null
-        },
-        "Potato": {
-          "http": null,
-          "total": null
-        }
-      },
+      "crop_totals": {},
       "date_coverage_probe": {}
     }
   }
