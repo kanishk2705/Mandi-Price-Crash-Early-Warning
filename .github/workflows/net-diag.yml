@@ -1,0 +1,42 @@
+name: Network diagnostic (data.gov.in reachability)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/net-diag.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe reachability (no secret used)
+        run: |
+          mkdir -p results/api_probe
+          {
+            echo "# Network diagnostic $(date -u +%FT%TZ)"
+            echo "## Runner public location"
+            curl -s --max-time 10 https://ipinfo.io/json | grep -E '"(country|region|org)"' || echo "ipinfo unreachable"
+            for h in api.data.gov.in data.gov.in www.data.gov.in agmarknet.gov.in api.agmarknet.gov.in; do
+              echo "## $h"
+              echo "DNS: $(getent hosts $h | head -1 || echo none)"
+              for scheme in https http; do
+                out=$(curl -s -o /dev/null -w '%{http_code} connect=%{time_connect}s total=%{time_total}s' --connect-timeout 20 --max-time 40 "$scheme://$h/" 2>&1 || true)
+                echo "$scheme: $out"
+              done
+            done
+          } | tee results/api_probe/net_diag.md
+          cat results/api_probe/net_diag.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/api_probe
+          git diff --cached --quiet && exit 0
+          git commit -m "data: network diagnostic [skip ci]"
+          git pull --rebase origin main && git push origin HEAD:main
