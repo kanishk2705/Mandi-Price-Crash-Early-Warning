@@ -7,9 +7,11 @@ name: API access check
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "17 */2 * * *"   # temporary: retry every 2 h while the API is unstable
   push:
     branches: [main]
-    paths: [scripts/probe_api.py, .github/workflows/api-probe.yml]
+    paths: [scripts/probe_api.py, scripts/probe_variants.py, .github/workflows/api-probe.yml]
 
 permissions:
   contents: write
@@ -44,7 +46,7 @@ jobs:
         env:
           DATA_GOV_IN_API_KEY: ${{ secrets.DATA_GOV_IN_API_KEY }}
         run: |
-          "%UV%" run --no-project --python 3.11 --with requests==2.32.3 python scripts/probe_api.py || exit /b 1
+          "%UV%" run --no-project --python 3.11 --with requests==2.32.3 python scripts/probe_variants.py || exit /b 1
 
       - name: Job summary
         if: always()
