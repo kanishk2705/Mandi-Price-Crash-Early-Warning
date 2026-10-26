@@ -3,6 +3,7 @@ name: API access check
 # Runs on the self-hosted runner on Kanishk's PC (India IP), because
 # data.gov.in refuses connections from GitHub-hosted (US) runners.
 # If the PC is off, GitHub queues the job for up to 24 hours.
+# Steps use cmd (not PowerShell) so no change to the PC's script policy is needed.
 
 on:
   workflow_dispatch:
@@ -23,42 +24,40 @@ jobs:
     timeout-minutes: 60
     defaults:
       run:
-        shell: powershell
+        shell: cmd
     steps:
       - uses: actions/checkout@v4
 
       - name: Bootstrap uv (kept on G:, no admin needed)
         run: |
-          $ErrorActionPreference = 'Stop'
-          $bin = Join-Path (Split-Path $env:UV_CACHE_DIR) 'uv-bin'
-          $uv  = Join-Path $bin 'uv.exe'
-          if (-not (Test-Path $uv)) {
-            New-Item -ItemType Directory -Force -Path $bin | Out-Null
-            $zip = Join-Path $env:RUNNER_TEMP 'uv.zip'
-            Invoke-WebRequest -Uri 'https://github.com/astral-sh/uv/releases/download/0.9.5/uv-x86_64-pc-windows-msvc.zip' -OutFile $zip
-            Expand-Archive $zip -DestinationPath $bin -Force
-            Remove-Item $zip
-          }
-          & $uv --version
-          "UV=$uv" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          set "UVBIN=%UV_CACHE_DIR%\..\uv-bin"
+          if not exist "%UVBIN%\uv.exe" (
+            mkdir "%UVBIN%" 2>nul
+            curl.exe -sSL -o "%RUNNER_TEMP%\uv.zip" https://github.com/astral-sh/uv/releases/download/0.9.5/uv-x86_64-pc-windows-msvc.zip || exit /b 1
+            tar.exe -xf "%RUNNER_TEMP%\uv.zip" -C "%UVBIN%" || exit /b 1
+            del "%RUNNER_TEMP%\uv.zip"
+          )
+          "%UVBIN%\uv.exe" --version || exit /b 1
+          echo UV=%UVBIN%\uv.exe>> "%GITHUB_ENV%"
 
       - name: Probe data.gov.in (key from secret, never echoed)
         env:
           DATA_GOV_IN_API_KEY: ${{ secrets.DATA_GOV_IN_API_KEY }}
         run: |
-          & $env:UV run --no-project --python 3.11 --with requests==2.32.3 python scripts/probe_api.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "%UV%" run --no-project --python 3.11 --with requests==2.32.3 python scripts/probe_api.py || exit /b 1
 
       - name: Job summary
         if: always()
-        run: if (Test-Path results/api_probe/summary.md) { Get-Content results/api_probe/summary.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY }
+        run: |
+          if exist results\api_probe\summary.md type results\api_probe\summary.md >> "%GITHUB_STEP_SUMMARY%"
+          exit /b 0
 
       - name: Leak check
         env:
           DATA_GOV_IN_API_KEY: ${{ secrets.DATA_GOV_IN_API_KEY }}
         run: |
-          $hit = Get-ChildItem results -Recurse -File | Select-String -SimpleMatch -Pattern $env:DATA_GOV_IN_API_KEY -List
-          if ($hit) { Write-Error "API key found in results"; exit 1 }
+          findstr /S /M /C:"%DATA_GOV_IN_API_KEY%" results\* >nul && (echo API key found in results & exit /b 1)
+          exit /b 0
 
       - name: Commit probe results
         if: success()
@@ -66,8 +65,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add results/api_probe
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) { exit 0 }
-          git commit -m "data: API access probe results [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          git diff --cached --quiet && exit /b 0
+          git commit -m "data: API access probe results [skip ci]" || exit /b 1
+          git pull --rebase origin main || exit /b 1
+          git push origin HEAD:main || exit /b 1

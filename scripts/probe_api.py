@@ -125,7 +125,7 @@ def main() -> int:
 
     text = json.dumps(report, indent=2, ensure_ascii=False, default=str)
     assert KEY not in text, "API key leaked into report"
-    (OUT / "summary.json").write_text(text)
+    (OUT / "summary.json").write_text(text, encoding="utf-8")
 
     md = ["# data.gov.in API access check", f"Run (UTC): {report['run_utc']}", ""]
     for name, res in report["resources"].items():
@@ -137,8 +137,9 @@ def main() -> int:
         hits = {d: v.get("total") for d, v in res["date_coverage_probe"].items() if v.get("total")}
         md += [f"- probed dates that returned records: {hits}",
                f"- first/last raw record: {res.get('sample_record')} / {res.get('last_record')}", ""]
-    (OUT / "summary.md").write_text("\n".join(md))
+    (OUT / "summary.md").write_text("\n".join(md), encoding="utf-8")
     assert KEY not in "\n".join(md)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print("\n".join(md))
     return 0
 
