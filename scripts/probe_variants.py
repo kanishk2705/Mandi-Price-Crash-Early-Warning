@@ -26,6 +26,8 @@ def redact(t: str) -> str:
 
 
 VARIANTS = [
+    # Control: small unrelated dataset (all-India pincode directory) - tests the key itself
+    ("control_pincode_json", "6176ee09-3d56-4a3b-8115-21841576b2f6", {"format": "json", "limit": 3}),
     ("cur_json_tomato_TN", CUR, {"format": "json", "limit": 5, "filters[state.keyword]": "Tamil Nadu", "filters[commodity]": "Tomato"}),
     ("cur_json_tomato", CUR, {"format": "json", "limit": 5, "filters[commodity]": "Tomato"}),
     ("cur_json_plain10", CUR, {"format": "json", "limit": 10}),
