@@ -30,13 +30,13 @@ def redact(text: str) -> str:
     return text.replace(KEY, "***") if KEY else text
 
 
-def call(rid: str, params: dict, retries: int = 3) -> dict:
+def call(rid: str, params: dict, retries: int = 2) -> dict:
     q = {"api-key": KEY, "format": "json", "limit": 1, "offset": 0, **params}
     last = {}
     for attempt in range(retries):
         t0 = time.time()
         try:
-            r = requests.get(BASE + rid, params=q, timeout=60)
+            r = requests.get(BASE + rid, params=q, timeout=45)
             info = {"http": r.status_code, "secs": round(time.time() - t0, 2)}
             try:
                 body = r.json()
@@ -108,20 +108,18 @@ def main() -> int:
             c = call(rid, {f"filters[{cfield}]": crop})
             res["crop_totals"][crop] = {"http": c.get("http"), "total": c.get("total")}
 
-        # History coverage: probe mid-month dates across years for Tomato
+        # History coverage: does the ORIGINAL source keep past days?
+        # One mid-quarter date per year (Tomato) plus the last 12 days (all crops).
         cov = {}
         if dfield:
-            for year in range(2010, 2027):
-                for month in (1, 4, 7, 10):
-                    d = f"15/{month:02d}/{year}"
-                    p = call(rid, {f"filters[{dfield}]": d, f"filters[{cfield}]": "Tomato"})
-                    cov[d] = {"http": p.get("http"), "total": p.get("total")}
-                    time.sleep(0.3)
-            # Also one recent week, day by day
-            for day in range(15, 26):
-                d = f"{day:02d}/10/2026"
+            probe_dates = [f"15/{m:02d}/{y}" for y in range(2014, 2027) for m in (1, 7)]
+            today = datetime.now(timezone.utc).date()
+            from datetime import timedelta
+            probe_dates += [(today - timedelta(days=k)).strftime("%d/%m/%Y") for k in range(0, 12)]
+            for d in probe_dates:
                 p = call(rid, {f"filters[{dfield}]": d})
-                cov[d + " (all crops)"] = {"http": p.get("http"), "total": p.get("total")}
+                cov[d] = {"http": p.get("http"), "total": p.get("total"), "msg": p.get("message")}
+                time.sleep(0.3)
         res["date_coverage_probe"] = cov
         report["resources"][name] = res
 
@@ -136,8 +134,9 @@ def main() -> int:
                f"- HTTP {h.get('http')}, total records: **{h.get('total')}**, updated: {h.get('updated_date')}",
                f"- message: {h.get('message')}", f"- fields: {h.get('fields')}",
                f"- crop totals: {res['crop_totals']}", ""]
-        hits = [d for d, v in res["date_coverage_probe"].items() if v.get("total")]
-        md += [f"- dates with data (Tomato probe + recent days): {hits}", ""]
+        hits = {d: v.get("total") for d, v in res["date_coverage_probe"].items() if v.get("total")}
+        md += [f"- probed dates that returned records: {hits}",
+               f"- first/last raw record: {res.get('sample_record')} / {res.get('last_record')}", ""]
     (OUT / "summary.md").write_text("\n".join(md))
     assert KEY not in "\n".join(md)
     print("\n".join(md))

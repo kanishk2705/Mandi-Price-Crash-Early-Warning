@@ -1,5 +1,9 @@
 name: API access check
 
+# Runs on the self-hosted runner on Kanishk's PC (India IP), because
+# data.gov.in refuses connections from GitHub-hosted (US) runners.
+# If the PC is off, GitHub queues the job for up to 24 hours.
+
 on:
   workflow_dispatch:
   push:
@@ -10,38 +14,60 @@ permissions:
   contents: write
 
 concurrency:
-  group: api-probe
+  group: data-gov-in
   cancel-in-progress: false
 
 jobs:
   probe:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: [self-hosted, windows, mandi-india]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: powershell
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install requests==2.32.3
+
+      - name: Bootstrap uv (kept on G:, no admin needed)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bin = Join-Path (Split-Path $env:UV_CACHE_DIR) 'uv-bin'
+          $uv  = Join-Path $bin 'uv.exe'
+          if (-not (Test-Path $uv)) {
+            New-Item -ItemType Directory -Force -Path $bin | Out-Null
+            $zip = Join-Path $env:RUNNER_TEMP 'uv.zip'
+            Invoke-WebRequest -Uri 'https://github.com/astral-sh/uv/releases/download/0.9.5/uv-x86_64-pc-windows-msvc.zip' -OutFile $zip
+            Expand-Archive $zip -DestinationPath $bin -Force
+            Remove-Item $zip
+          }
+          & $uv --version
+          "UV=$uv" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
       - name: Probe data.gov.in (key from secret, never echoed)
         env:
           DATA_GOV_IN_API_KEY: ${{ secrets.DATA_GOV_IN_API_KEY }}
-        run: python scripts/probe_api.py
+        run: |
+          & $env:UV run --no-project --python 3.11 --with requests==2.32.3 python scripts/probe_api.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Job summary
         if: always()
-        run: test -f results/api_probe/summary.md && cat results/api_probe/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+        run: if (Test-Path results/api_probe/summary.md) { Get-Content results/api_probe/summary.md | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY }
+
       - name: Leak check
         env:
           DATA_GOV_IN_API_KEY: ${{ secrets.DATA_GOV_IN_API_KEY }}
         run: |
-          if grep -rqF -- "$DATA_GOV_IN_API_KEY" results/ ; then echo "key found in results"; exit 1; fi
+          $hit = Get-ChildItem results -Recurse -File | Select-String -SimpleMatch -Pattern $env:DATA_GOV_IN_API_KEY -List
+          if ($hit) { Write-Error "API key found in results"; exit 1 }
+
       - name: Commit probe results
-        if: always()
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add results/api_probe || true
-          git diff --cached --quiet && exit 0
+          git add results/api_probe
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { exit 0 }
           git commit -m "data: API access probe results [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main
